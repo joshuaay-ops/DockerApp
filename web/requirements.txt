@@ -1,0 +1,4 @@
+flask
+redis
+#python lubrary to call apis
+requests

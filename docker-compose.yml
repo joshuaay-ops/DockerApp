@@ -1,0 +1,58 @@
+
+services:
+  web:
+  # build image from dockerfile in the web folder
+    build: web
+ # no ports needed: only NGINX talks to web, over the Compose network
+    # settings Flask reads with os.getenv (values come from .env)
+      # environment variables for the web service
+    environment:
+    #environment variables for the web service
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      #pass key into container
+      - COINGECKO_API_KEY=${COINGECKO_API_KEY}
+     # defining the healthcheck for the web service, dont start it until redis passes healthcheck
+    depends_on:
+      redis:
+        condition: service_healthy
+    develop:
+      watch:
+     # Sync code changes in web/ into the container, then restart
+
+        - action: sync+restart
+          path: web
+          # target path in the container where the code will be synced
+          target: /code
+      # Rebuild the image when Python packages change
+        - action: rebuild
+          path: web/requirements.txt
+
+  redis:
+  # building from the Dockerfile in the redis directory
+    build: redis
+    #redis data stored in a named volume so the count survives restarts
+    volumes:
+      - redis-data:/data
+      #healthcheck healthy when redis replies pong to a ping
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+  nginx:
+  #building from the Dockerfile in the Nginx directory
+    build: Nginx
+    #listen on port 8000 and forward to port 80 in the container
+    ports:
+      - 8000:80
+      #nginx to forward to web so the web ca nstart
+    depends_on:
+      - web
+  
+    
+
+volumes:
+# defining a named volume for persisting Redis data
+    redis-data:
